@@ -8,6 +8,45 @@ const assert = (expected, result, message = '') => {
   }
 };
 
+{
+  const buffer = new Uint8Array([10, 20, 30, 40]).buffer;
+  for (const [offset, length] of [[0, 2], [1, 2], [2, 2], [3, 0], [0, 0], [0, 4]]) {
+    const original = new DataView(buffer, offset, length);
+    const native = typeof globalThis.structuredClone === 'function' ?
+      globalThis.structuredClone(original) : original;
+    for (const result of [
+      deserialize(serialize(original)),
+      deserialize(JSON.parse(JSON.stringify(serialize(original)))),
+      parse(stringify(original)),
+      structuredClone(original, {lossy: true})
+    ]) {
+      assert(result instanceof DataView, true);
+      assert(result.byteOffset, native.byteOffset, 'preserves DataView byteOffset');
+      assert(result.byteLength, native.byteLength, 'preserves DataView byteLength');
+      assert(result.buffer.byteLength, native.buffer.byteLength);
+      assert([...new Uint8Array(result.buffer)].join(','), [...new Uint8Array(native.buffer)].join(','));
+      for (let i = 0; i < length; i++)
+        assert(result.getUint8(i), native.getUint8(i));
+      let outOfBounds = false;
+      try {
+        result.getUint8(length);
+      }
+      catch (error) {
+        outOfBounds = error instanceof RangeError;
+      }
+      assert(outOfBounds, true, 'keeps reads outside the DataView out of bounds');
+      if (length) {
+        result.setUint8(0, 255);
+        assert(original.getUint8(0), native.getUint8(0), 'does not share the source buffer');
+      }
+    }
+  }
+  const legacy = deserialize([['DataView', [10, 20, 30, 40]]]);
+  assert(legacy.byteOffset, 0);
+  assert(legacy.byteLength, 4);
+  assert(legacy.getUint8(0), 10);
+}
+
 // @see https://github.com/ungap/structured-clone/issues/4
 const withUndefined = stringify({foo: 'test', bar: undefined, foobar: null});
 assert(withUndefined, '[[2,[[1,2],[3,4],[5,6]]],[0,"foo"],[0,"test"],[0,"bar"],[-1],[0,"foobar"],[0,null]]');

@@ -87,7 +87,11 @@ const serializer = (strict, json, $, _) => {
         if (type) {
           let spread = value;
           if (type === 'DataView') {
-            spread = new Uint8Array(value.buffer);
+            const {buffer, byteOffset, byteLength} = value;
+            const entry = [type, [...new Uint8Array(buffer)]];
+            if (byteOffset || byteLength !== buffer.byteLength)
+              entry.push(byteOffset, byteLength);
+            return as(entry, value);
           }
           else if (type === 'ArrayBuffer') {
             spread = new Uint8Array(value);
