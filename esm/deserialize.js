@@ -90,9 +90,9 @@ const deserializer = ($, _) => {
       case 'ArrayBuffer':
         return as(new Uint8Array(value).buffer, value);
       case 'DataView': {
-        const { buffer } = new Uint8Array(value);
-        const [, , byteOffset, byteLength] = _[index];
-        return as(new DataView(buffer, byteOffset, byteLength), value);
+        const {buffer, byteOffset, byteLength} = Array.isArray(value) ?
+          {buffer: value, byteOffset: 0, byteLength: value.length} : value;
+        return as(new DataView(new Uint8Array(buffer).buffer, byteOffset, byteLength), value);
       }
       case '-0': return -0;
     }

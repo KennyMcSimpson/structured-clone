@@ -10,8 +10,13 @@ const assert = (expected, result, message = '') => {
 
 {
   const buffer = new Uint8Array([10, 20, 30, 40]).buffer;
-  for (const [offset, length] of [[0, 2], [1, 2], [2, 2], [3, 0], [0, 0], [0, 4]]) {
+  for (const [offset, length] of [[0, 2], [1, 2], [2, 2], [3, 0], [4, 0], [0, 0], [0, 4]]) {
     const original = new DataView(buffer, offset, length);
+    const [record] = serialize(original);
+    assert(record.length, 2, 'keeps the type/value pair contract');
+    assert(JSON.stringify(record), JSON.stringify(['DataView', {
+      buffer: [10, 20, 30, 40], byteOffset: offset, byteLength: length
+    }]), 'uses named DataView fields for every view');
     const native = typeof globalThis.structuredClone === 'function' ?
       globalThis.structuredClone(original) : original;
     for (const result of [
@@ -41,10 +46,15 @@ const assert = (expected, result, message = '') => {
       }
     }
   }
-  const legacy = deserialize([['DataView', [10, 20, 30, 40]]]);
-  assert(legacy.byteOffset, 0);
-  assert(legacy.byteLength, 4);
-  assert(legacy.getUint8(0), 10);
+  for (const bytes of [[], [10, 20, 30, 40]]) {
+    const legacy = deserialize([['DataView', bytes]]);
+    assert(legacy.byteOffset, 0);
+    assert(legacy.byteLength, bytes.length);
+    assert([...new Uint8Array(legacy.buffer)].join(','), bytes.join(','));
+  }
+  const empty = deserialize(serialize(new DataView(new ArrayBuffer(0))));
+  assert(empty.byteOffset, 0);
+  assert(empty.byteLength, 0);
 }
 
 // @see https://github.com/ungap/structured-clone/issues/4
@@ -105,7 +115,7 @@ function test(firstRun = false) {
   console.timeEnd('serialized in');
 
   assert(JSON.stringify(serialized), [
-    `[[2,[[1,2],[3,4],[5,6],[7,8],[9,10],[11,12],[13,14],[15,16],[17,18],[19,20],[21,22],[24,25],[27,28],[29,30],[31,32],[33,34],[35,36],[37,38],[39,40]]],[0,"arr"],[1,[0,0,0]],[0,"bigint"],[8,"1"],[0,"boolean"],[0,true],[0,"number"],[0,123],[0,"string"],[0,""],[0,"undefined"],[-1],[0,"null"],[0,null],[0,"buffer"],["ArrayBuffer",[0,1,2,3,4,5,6,7]],[0,"dataview"],["DataView",[0,1,2,3,4,5,6,7]],[0,"int"],["Uint32Array",[1,2,3]],[0,"map"],[5,[[23,8]]],[0,"a"],[0,"set"],[6,[23,26]],[0,"b"],[0,"Bool"],["Boolean",false],[0,"Num"],["Number",0],[0,"Str"],["String",""],[0,"re"],[4,{"source":"test","flags":"gim"}],[0,"error"],[7,{"name":"Error","message":"test"}],[0,"BI"],["BigInt","1"],[0,"date"],[3,"${date.toISOString()}"]]`
+    `[[2,[[1,2],[3,4],[5,6],[7,8],[9,10],[11,12],[13,14],[15,16],[17,18],[19,20],[21,22],[24,25],[27,28],[29,30],[31,32],[33,34],[35,36],[37,38],[39,40]]],[0,"arr"],[1,[0,0,0]],[0,"bigint"],[8,"1"],[0,"boolean"],[0,true],[0,"number"],[0,123],[0,"string"],[0,""],[0,"undefined"],[-1],[0,"null"],[0,null],[0,"buffer"],["ArrayBuffer",[0,1,2,3,4,5,6,7]],[0,"dataview"],["DataView",{"buffer":[0,1,2,3,4,5,6,7],"byteOffset":0,"byteLength":8}],[0,"int"],["Uint32Array",[1,2,3]],[0,"map"],[5,[[23,8]]],[0,"a"],[0,"set"],[6,[23,26]],[0,"b"],[0,"Bool"],["Boolean",false],[0,"Num"],["Number",0],[0,"Str"],["String",""],[0,"re"],[4,{"source":"test","flags":"gim"}],[0,"error"],[7,{"name":"Error","message":"test"}],[0,"BI"],["BigInt","1"],[0,"date"],[3,"${date.toISOString()}"]]`
   ].join(','));
 
   // firstRun && console.log(serialized);
